@@ -100,10 +100,31 @@ In the above example:
 * Any other service will be sampled with probability 0.5 defined by the `default_strategy`.
 * The `default_strategy` also includes shared per-operation strategies. In this example we disable tracing on `/health` and `/metrics` endpoints for all services by using probability 0. These per-operation strategies will apply to any new service not listed in the config, as well as to the `foo` and `bar` services unless they define their own strategies for these two operations.
 
-### Adaptive Sampling
+## Adaptive Sampling
 
-Another way to configure `remote_sampling` extension is to use Adaptive Sampling, which works by observing received spans and recalculating sampling probabilities for each service/endpoint combination to ensure that the volume of collected traces matches `target_samples_per_second`. When a new service or endpoint is detected, it is sampled with `initial_sampling_probability` until enough data is collected to calculate the rate appropriate for the traffic going through the endpoint.
+Another way to configure `remote_sampling` extension is to use Adaptive Sampling, which works by observing received spans and recalculating sampling probabilities for each service/endpoint combination to ensure that the volume of collected traces matches `target_samples_per_second`. 
 
-Adaptive sampling requires a `sampling_store` storage backend to store the observed traffic data and computed probabilities. At the moment `memory` (for all-in-one deployment), `cassandra`, `badger`, `elasticsearch` and `opensearch` are supported as sampling storage backends. This [sample configuration](https://github.com/jaegertracing/jaeger/blob/main/cmd/jaeger/config.yaml) illustrates the use of adaptive sampling.
+### How Adaptive Sampling Works
+
+* When a new service or endpoint is detected, it is sampled with initial_sampling_probability until enough data is collected to calculate the rate appropriate for the traffic going through the endpoint.
+
+* As Jaeger collects more spans, it adjusts the sampling probability based on traffic patterns.
+
+*Sampling decisions are stored in a backend database, which allows services to fetch updated sampling strategies dynamically.
+
+{{< warning >}}
+Adaptive Sampling does NOT work with OpenTelemetry SDKs in Jaeger
+{{< /warning >}}
+
+### Problem
+Jaeger's adaptive sampling relies on span tags (sampler.type, sampler.param) to:
+  * Determine sampling probability.
+  *Identify whether a trace was sampled using a lower-bound rate limiter.
+* OpenTelemetry SDKs do not include these tags, preventing Jaeger from:
+  * Verifying if adaptive sampling is applied correctly.
+  * Distinguishing normal sampled traces from those using a rate limiter.
+
+
+Adaptive sampling requires a `sampling_store` storage backend to store the observed traffic data and computed probabilities. Currently the supported storage backends include `memory` (for all-in-one deployment), `cassandra`, `badger`, `elasticsearch` and `opensearch`. This [sample configuration](https://github.com/jaegertracing/jaeger/blob/main/cmd/jaeger/config.yaml) illustrates the use of adaptive sampling.
 
 Read [this blog post](https://medium.com/jaegertracing/adaptive-sampling-in-jaeger-50f336f4334) for more details on adaptive sampling engine.
